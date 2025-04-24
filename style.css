@@ -13,7 +13,7 @@ body {
     width: 600px;
     height: 800px;
     position: relative;
-    cursor: pointer;
+    /* cursor: pointer; Removed */
     /* border: 1px solid #ccc; Optional: border to see canvas boundaries */
 }
 
