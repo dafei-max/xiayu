@@ -1,24 +1,13 @@
 body {
     margin: 0;
     padding: 0;
-    overflow: hidden;
-    background-color: #e6f7ff; /* 浅蓝色背景 */
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
+    min-height: 100vh;
+    background-color: #e6f3ff;
 }
 
-.canvas-container {
-    width: 600px;
-    height: 800px;
-    position: relative;
-    /* cursor: pointer; Removed */
-    /* border: 1px solid #ccc; Optional: border to see canvas boundaries */
-}
-
-canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
+#textCanvas {
+    background-color: #e6f3ff;
 } 

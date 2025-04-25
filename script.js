@@ -8,20 +8,19 @@ canvas.height = 800;
 
 // Text parameters
 const mainText = "xiaohongshu";
-const fontSize = 24; // Changed font size back to 24
-const fontFamily = "sans-serif"; // Use generic sans-serif
-const bgTextColor = "rgba(0, 0, 0, 0.08)"; // Faint background color
-const fgTextColor = "#005f99"; // Reverted fgTextColor to the specific blue
+const fontSize = 30;
+const fontFamily = "sans-serif";
+const bgTextColor = "rgba(0, 0, 0, 0.08)";
+const fgTextColor = "#005f99";
 
 // Interaction parameters
-const interactionRadius = 100; // Changed radius back to 100px
-const explosionForce = 7; // Adjusted force
-const chargePullSpring = 0.04; // Spring force pulling towards charge point
-const explosionDurationFrames = 4 * 60; // 4 seconds
-const recoveryDurationFrames = 3 * 60;  // 3 seconds (Changed from 5)
-const explosionPullbackSpring = 0.005; // Added weak spring for explosion bounce
-const recoverySpring = 0.05; // Kept for potential future use, not used in current recovery
-const damping = 0.92; // Slightly adjusted damping
+const interactionRadius = 100;
+const explosionForce = 25;
+const chargePullSpring = 0.04;
+const explosionDurationFrames = 2 * 60;
+const damping = 0.89;
+const explosionPullbackSpring = 0.01;
+const recoveryDurationFrames = 30;
 
 // Array to hold background character objects
 let bgChars = [];
@@ -73,12 +72,10 @@ function initializeChars() {
                 y: currentY,
                 vx: 0,
                 vy: 0,
-                // color: bgTextColor, // Color handled during draw
-                // currentSize: fontSize, // Size handled during draw
                 rotation: 0,
                 rotationSpeed: 0,
                 alpha: 1,
-                state: 'idle', // idle, charging, exploding, recovering
+                state: 'idle',
                 timer: 0,
                 charWidth: charWidth
             });
@@ -103,114 +100,108 @@ function updateAndDrawChars() {
         let drawRotation = charObj.rotation;
 
         if (charObj.state === 'charging') {
-            // Pull towards the charging point
             const dx = chargeX - charObj.x;
             const dy = chargeY - charObj.y;
             charObj.vx += dx * chargePullSpring;
             charObj.vy += dy * chargePullSpring;
-
-            // Apply damping & update position
-            charObj.vx *= damping;
+            charObj.vx *= damping; 
             charObj.vy *= damping;
             charObj.x += charObj.vx;
             charObj.y += charObj.vy;
-
-            // Keep appearance normal during charge
             drawX = charObj.x;
             drawY = charObj.y;
             drawAlpha = 1;
             drawSize = fontSize;
             drawRotation = 0;
+            drawColor = bgTextColor;
 
         } else if (charObj.state === 'exploding') {
-            // Apply weak spring towards origin during explosion for elasticity
             const dxSpring = charObj.originX - charObj.x;
             const dySpring = charObj.originY - charObj.y;
             charObj.vx += dxSpring * explosionPullbackSpring;
             charObj.vy += dySpring * explosionPullbackSpring;
-            
-            // Apply damping & update position
+
             charObj.vx *= damping;
             charObj.vy *= damping;
             charObj.x += charObj.vx;
             charObj.y += charObj.vy;
             
-            // Update rotation
             charObj.rotation += charObj.rotationSpeed;
             
-            // Variations for explosion
-            // Size pulse
-            const timeFactor = (explosionDurationFrames - charObj.timer) / explosionDurationFrames; // 0 to 1
-            drawSize = fontSize * (0.7 + Math.abs(Math.sin(timeFactor * Math.PI * 2)) * 0.5); // Slower size pulse
-            // Linear fade out instead of flicker
-            drawAlpha = Math.max(0, charObj.timer / explosionDurationFrames); 
-            
-            // Store current alpha for drawing state consistency
+            const timeFactor = Math.max(0, charObj.timer / explosionDurationFrames);
+            drawSize = fontSize * (0.7 + Math.abs(Math.sin((1-timeFactor) * Math.PI * 2)) * 0.5); 
+            drawAlpha = 0.4 + Math.abs(Math.sin((1-timeFactor) * Math.PI * 3)) * 0.6; 
             charObj.alpha = drawAlpha;
-            drawColor = fgTextColor; // Set color to blue during explosion
-
-            // Add small random position offset for more scatter (reduced further)
-            drawX = charObj.x + (Math.random() - 0.5) * 1.5;
-            drawY = charObj.y + (Math.random() - 0.5) * 1.5;
+            
+            drawX = charObj.x;
+            drawY = charObj.y;
             drawRotation = charObj.rotation;
+            drawColor = fgTextColor;
 
-            // Timer logic
             charObj.timer--;
             if (charObj.timer <= 0) {
-                charObj.state = 'recovering';
-                charObj.timer = recoveryDurationFrames;
-                // Reset appearance properties for recovery start
-                charObj.x = charObj.originX; // Ensure it recovers at origin
+                charObj.state = 'waitingToRecover';
+                charObj.recoveryDelayTimer = Math.random() * 90;
+                charObj.x = charObj.originX;
                 charObj.y = charObj.originY;
                 charObj.vx = 0;
                 charObj.vy = 0;
                 charObj.rotation = 0;
                 charObj.rotationSpeed = 0;
-                charObj.alpha = 0; // Start recovery fully transparent
+                charObj.alpha = 0;
             }
+        } else if (charObj.state === 'waitingToRecover') {
+            charObj.recoveryDelayTimer--;
+            if (charObj.recoveryDelayTimer <= 0) {
+                charObj.state = 'recovering';
+                charObj.timer = recoveryDurationFrames;
+                charObj.alpha = 0;
+            }
+            drawAlpha = 0;
+            drawX = charObj.originX;
+            drawY = charObj.originY;
+            drawSize = fontSize;
+            drawRotation = 0;
+            drawColor = fgTextColor;
+            
         } else if (charObj.state === 'recovering') {
-            // In-place recovery: only alpha changes
             drawAlpha = Math.min(1, 1 - (charObj.timer / recoveryDurationFrames)); 
             charObj.alpha = drawAlpha;
 
-            // Keep at original position, normal size/rotation
             drawSize = fontSize;
             drawX = charObj.originX;
             drawY = charObj.originY;
             drawRotation = 0;
-            // drawColor remains bgTextColor
+            drawColor = fgTextColor;
             
-            // Timer and recovery completion check
             charObj.timer--;
             if (charObj.timer <= 0) {
                 charObj.state = 'idle';
                 charObj.alpha = 1;
-                // Update draw variables for this frame
                 drawAlpha = 1;
+                drawColor = bgTextColor;
             }
-        } else { // 'idle' state
-             // Ensure idle state has correct default values
-             drawSize = fontSize;
-             drawAlpha = 1;
-             drawRotation = 0;
-             drawX = charObj.originX;
-             drawY = charObj.originY;
-             if(charObj.x !== charObj.originX || charObj.y !== charObj.originY || charObj.vx !== 0 || charObj.vy !== 0) {
-                 // Force reset if somehow drifted
-                 charObj.x = charObj.originX;
-                 charObj.y = charObj.originY;
-                 charObj.vx = 0;
-                 charObj.vy = 0;
-                 charObj.rotation = 0;
-                 charObj.rotationSpeed = 0;
-                 charObj.alpha = 1;
-             }
+        } else {
+            drawSize = fontSize;
+            drawAlpha = 1;
+            drawRotation = 0;
+            drawX = charObj.originX;
+            drawY = charObj.originY;
+            drawColor = bgTextColor;
+            if(charObj.x !== charObj.originX || charObj.y !== charObj.originY || charObj.vx !== 0 || charObj.vy !== 0 || charObj.alpha !== 1) {
+                charObj.x = charObj.originX;
+                charObj.y = charObj.originY;
+                charObj.vx = 0;
+                charObj.vy = 0;
+                charObj.rotation = 0;
+                charObj.rotationSpeed = 0;
+                charObj.alpha = 1;
+            }
         }
         
-        // Draw the character
         ctx.save();
         ctx.globalAlpha = drawAlpha;
-        ctx.fillStyle = drawColor; // Will always be bgTextColor now
+        ctx.fillStyle = drawColor;
         ctx.font = `${drawSize}px ${fontFamily}`;
         const centerX = drawX + charObj.charWidth / 2;
         const centerY = drawY + fontSize / 2;
@@ -222,12 +213,9 @@ function updateAndDrawChars() {
     ctx.globalAlpha = 1;
 }
 
-// --- Event Listeners for Charging/Explosion ---
-
 function handlePointerDown(event) {
     isCharging = true;
     const rect = canvas.getBoundingClientRect();
-    // Use clientX/Y for mouse, potentially touches[0].clientX/Y for touch
     chargeX = (event.clientX || event.touches[0].clientX) - rect.left;
     chargeY = (event.clientY || event.touches[0].clientY) - rect.top;
 
@@ -241,7 +229,6 @@ function handlePointerDown(event) {
 
             if (distance < interactionRadius) {
                 charObj.state = 'charging';
-                // Reset velocity before charging pull starts
                 charObj.vx = 0;
                 charObj.vy = 0;
             }
@@ -255,62 +242,42 @@ function handlePointerUp(event) {
 
     bgChars.forEach(charObj => {
         if (charObj.state === 'charging') {
-            // Transition from charging to exploding
             charObj.state = 'exploding';
             charObj.timer = explosionDurationFrames;
             charObj.rotation = 0;
-            charObj.rotationSpeed = (Math.random() - 0.5) * 0.15; // Assign random rotation speed for explosion
+            charObj.rotationSpeed = (Math.random() - 0.5) * 0.08;
 
-            // Explosion force based on the initial charge point
-            const dx = charObj.x - chargeX; // Explode from current pos away from charge point
+            const dx = charObj.x - chargeX;
             const dy = charObj.y - chargeY;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const angle = Math.atan2(dy, dx);
-            const force = (1 - dist / interactionRadius) * explosionForce; // Less force if it was pulled further
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const force = (1 - distance / interactionRadius) * explosionForce;
             
-            charObj.vx = Math.cos(angle) * force + (Math.random() - 0.5) * 3; // More randomness
-            charObj.vy = Math.sin(angle) * force + (Math.random() - 0.5) * 3;
+            const angle = Math.atan2(dy, dx);
+            const randomAngle = angle + (Math.random() - 0.5) * 0.2;
+            
+            charObj.vx = Math.cos(randomAngle) * force;
+            charObj.vy = Math.sin(randomAngle) * force;
         }
     });
-    chargeX = null; // Clear charge point
+    chargeX = null;
     chargeY = null;
 }
 
 function handlePointerMove(event) {
-    // Optional: Update chargeX/Y if you want the pull point to follow the cursor while holding
-    // if (!isCharging) return;
-    // const rect = canvas.getBoundingClientRect();
-    // chargeX = (event.clientX || event.touches[0].clientX) - rect.left;
-    // chargeY = (event.clientY || event.touches[0].clientY) - rect.top;
+    if (!isCharging) return;
+    const rect = canvas.getBoundingClientRect();
+    chargeX = (event.clientX || event.touches[0].clientX) - rect.left;
+    chargeY = (event.clientY || event.touches[0].clientY) - rect.top;
 }
 
-function handlePointerLeave(event) {
-    // Optional: Cancel charge if mouse leaves canvas while holding?
-    // if (isCharging) {
-    //     isCharging = false;
-    //     bgChars.forEach(charObj => {
-    //         if (charObj.state === 'charging') {
-    //             // Reset to idle smoothly or instantly?
-    //             charObj.state = 'recovering'; // Use recovery logic to return
-    //             charObj.timer = 60; // Short recovery
-    //             charObj.alpha = 0;
-    //         }
-    //     });
-    //     chargeX = null;
-    //     chargeY = null;
-    // }
-}
-
-// Add listeners (consider touch events too for broader compatibility)
+// Add event listeners
 canvas.addEventListener('mousedown', handlePointerDown);
 canvas.addEventListener('mouseup', handlePointerUp);
-canvas.addEventListener('mousemove', handlePointerMove); // If needed
-canvas.addEventListener('mouseleave', handlePointerLeave); // If needed
+canvas.addEventListener('mousemove', handlePointerMove);
 
 canvas.addEventListener('touchstart', handlePointerDown, { passive: true });
 canvas.addEventListener('touchend', handlePointerUp);
-canvas.addEventListener('touchmove', handlePointerMove, { passive: true }); // If needed
-canvas.addEventListener('touchcancel', handlePointerLeave); // If needed
+canvas.addEventListener('touchmove', handlePointerMove, { passive: true });
 
 // Main animation loop
 function animate() {
